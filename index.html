@@ -102,7 +102,7 @@
             skipEmptyLines: true,
             complete: function (results) {
               processData(results.data);
-              document.getElementById('lastUpdated').textContent = 'Synced with report.csv';
+              document.getElementById('lastUpdated').textContent = '';
             }
           });
         })
@@ -143,11 +143,17 @@
         }
       });
 
-      // Sort participants in descending order by Total Steps
-      participants = Object.keys(stepMap).map(name => ({
+      // 1. Convert to array and sort strictly descending by steps
+      const sortedList = Object.keys(stepMap).map(name => ({
         name: name,
         steps: stepMap[name]
       })).sort((a, b) => b.steps - a.steps);
+
+      // 2. Assign absolute leaderboard rank before any searching/filtering occurs
+      participants = sortedList.map((p, idx) => ({
+        ...p,
+        rank: idx + 1
+      }));
 
       renderStats(participants);
       renderLeaderCard(participants);
@@ -182,11 +188,11 @@
         return;
       }
 
-      tbody.innerHTML = list.map((p, idx) => {
-        const rank = idx + 1;
+      tbody.innerHTML = list.map((p) => {
         return `
           <tr class="hover:bg-slate-50 transition-colors">
-            <td class="py-3 px-6 font-semibold text-slate-500">#${rank}</td>
+            <!-- Retains the permanent leaderboard rank during searches -->
+            <td class="py-3 px-6 font-semibold text-slate-500">#${p.rank}</td>
             <td class="py-3 px-6 font-semibold text-slate-900">${p.name}</td>
             <td class="py-3 px-6 text-right font-bold text-indigo-600">${p.steps.toLocaleString()}</td>
           </tr>

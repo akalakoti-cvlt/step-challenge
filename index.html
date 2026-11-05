@@ -23,7 +23,7 @@
 
     <!-- 1st Place Spotlight Card -->
     <div id="firstPlaceCard"
-      class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 mb-8 shadow-xs hidden">
+      class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 mb-4 shadow-xs hidden">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div>
           <span
@@ -36,6 +36,13 @@
           <div id="leaderSteps" class="text-3xl font-black text-amber-600 mt-0.5">-</div>
         </div>
       </div>
+    </div>
+
+    <!-- Last Updated Timestamp (IST) -->
+    <div class="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-400 mb-8 px-2">
+      <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span>Last Synced:</span>
+      <strong id="syncTimeIST" class="text-slate-600 font-semibold">Calculating sync time...</strong>
     </div>
 
     <!-- Summary Metrics -->
@@ -64,7 +71,7 @@
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
         <h2 class="text-base font-bold text-slate-900">Standings</h2>
-        <span id="lastUpdated" class="text-xs text-slate-400">Loading data...</span>
+        <span id="lastUpdated" class="text-xs text-slate-400"></span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
@@ -94,6 +101,11 @@
       fetch(`report.csv?t=${Date.now()}`)
         .then(response => {
           if (!response.ok) throw new Error('report.csv could not be found');
+
+          // Try to read Last-Modified response header, fall back to current client time if missing
+          const lastModHeader = response.headers.get('Last-Modified');
+          updateSyncTime(lastModHeader ? new Date(lastModHeader) : new Date());
+
           return response.text();
         })
         .then(csvText => {
@@ -107,13 +119,36 @@
           });
         })
         .catch(() => {
-          document.getElementById('lastUpdated').textContent = 'Error loading file';
+          document.getElementById('lastUpdated').textContent = '';
+          document.getElementById('syncTimeIST').textContent = 'Unavailable';
           document.getElementById('leaderboardBody').innerHTML = `
             <tr><td colspan="3" class="text-center py-8 text-slate-400">
               Could not load <code>report.csv</code>. Ensure it is committed in the same folder as <code>index.html</code>.
             </td></tr>`;
         });
     });
+
+    // Converts date object directly to Indian Standard Time (IST) formatting
+    function updateSyncTime(dateObject) {
+      const options = {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+
+      try {
+        const istString = dateObject.toLocaleString('en-IN', options);
+        document.getElementById('syncTimeIST').textContent = `${istString} (IST)`;
+      } catch (e) {
+        // Fallback styling if browser environment locale limits are hit
+        document.getElementById('syncTimeIST').textContent = dateObject.toUTCString();
+      }
+    }
 
     // Real-time search filter
     document.getElementById('searchInput').addEventListener('input', function (e) {
@@ -143,13 +178,13 @@
         }
       });
 
-      // 1. Convert to array and sort strictly descending by steps
+      // Sort strictly descending by steps
       const sortedList = Object.keys(stepMap).map(name => ({
         name: name,
         steps: stepMap[name]
       })).sort((a, b) => b.steps - a.steps);
 
-      // 2. Assign absolute leaderboard rank before any searching/filtering occurs
+      // Assign absolute leaderboard rank before any searching/filtering
       participants = sortedList.map((p, idx) => ({
         ...p,
         rank: idx + 1
@@ -191,7 +226,6 @@
       tbody.innerHTML = list.map((p) => {
         return `
           <tr class="hover:bg-slate-50 transition-colors">
-            <!-- Retains the permanent leaderboard rank during searches -->
             <td class="py-3 px-6 font-semibold text-slate-500">#${p.rank}</td>
             <td class="py-3 px-6 font-semibold text-slate-900">${p.name}</td>
             <td class="py-3 px-6 text-right font-bold text-indigo-600">${p.steps.toLocaleString()}</td>
